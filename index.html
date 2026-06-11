@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rate Limit Tester</title>
+<style>
+:root {
+  --bg: #2a2a2a;
+  --panel: #353535;
+  --ink: #f0e8de;
+  --ink-soft: #b0a89e;
+  --rule: #4a4a4a;
+  --orange: #cc4400;
+  --orange-bright: #e85808;
+  --orange-deep: #aa3500;
+  --gauge-bg: #1a1a1a;
+  --ok: #5ab048;
+  --warn: #d8a020;
+  --err: #d04030;
+  --429: #e85808;
+  --code-bg: #1f1f1f;
+}
+[data-theme="light"] {
+  --bg: #f0ece4;
+  --panel: #faf6ee;
+  --ink: #1a1818;
+  --ink-soft: #5c5650;
+  --rule: #c8c0b4;
+  --orange: #c4400c;
+  --orange-bright: #e05418;
+  --orange-deep: #983208;
+  --gauge-bg: #e5dfd2;
+  --ok: #2a7a1a;
+  --warn: #8a5a00;
+  --err: #a83020;
+  --429: #c4400c;
+  --code-bg: #e5dfd2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  line-height: 1.55;
+}
+.wrap { max-width: 1100px; margin: 0 auto; }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid var(--orange);
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--orange-bright);
+}
+.subtitle {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+}
+.theme-btn:hover { border-color: var(--orange); color: var(--orange-bright); }
+.lede {
+  font-size: 0.9rem;
+  margin-bottom: 1.75rem;
+  max-width: 70ch;
+  font-family: ui-sans-serif, -apple-system, sans-serif;
+}
+.warn-banner {
+  background: var(--code-bg);
+  border-left: 4px solid var(--warn);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--ink);
+  font-family: ui-sans-serif, -apple-system, sans-serif;
+  border-radius: 2px;
+}
+.warn-banner strong { color: var(--warn); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.78rem; }
+.controls {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 3px;
+}
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.field { display: flex; flex-direction: column; }
+label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--orange-bright);
+  margin-bottom: 0.35rem;
+}
+input[type="text"], input[type="number"], select, textarea {
+  width: 100%;
+  background: var(--gauge-bg);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 0.55rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  border-radius: 2px;
+}
+[data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea {
+  background: var(--code-bg);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--orange);
+  outline-offset: 1px;
+}
+textarea { resize: vertical; min-height: 70px; }
+.url-field { grid-column: 1 / -1; }
+.btn-row {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+button {
+  font-family: inherit;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: 2px;
+}
+button.primary {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--bg);
+}
+[data-theme="dark"] button.primary {
+  color: var(--bg) !important;
+}
+[data-theme="light"] button.primary { color: #fff; }
+button.primary:hover:not(:disabled) { background: var(--orange-bright); border-color: var(--orange-bright); }
+button.danger {
+  background: var(--err);
+  border-color: var(--err);
+  color: #fff;
+}
+button.danger:hover:not(:disabled) { background: var(--orange-deep); border-color: var(--orange-deep); }
+button:hover:not(:disabled) { border-color: var(--orange); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.gauges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+.gauge {
+  background: var(--gauge-bg);
+  border: 1px solid var(--rule);
+  padding: 1rem;
+  border-radius: 3px;
+  text-align: center;
+}
+.gauge-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+.gauge-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--orange-bright);
+  font-variant-numeric: tabular-nums;
+}
+.gauge-unit {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-top: 0.15rem;
+}
+.gauge.gauge-429 .gauge-value { color: var(--429); }
+.gauge.gauge-ok .gauge-value { color: var(--ok); }
+.gauge.gauge-err .gauge-value { color: var(--err); }
+.timeline {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 3px;
+}
+h2 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--orange-bright);
+  margin-bottom: 1rem;
+}
+.timeline-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--gauge-bg);
+  padding: 0.5rem;
+  border-radius: 2px;
+  min-height: 2.5rem;
+  align-content: flex-start;
+}
+.req-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 1px;
+  position: relative;
+}
+.req-cell.s2xx { background: var(--ok); }
+.req-cell.s3xx { background: #6080c0; }
+.req-cell.s4xx { background: var(--err); }
+.req-cell.s429 { background: var(--429); }
+.req-cell.s5xx { background: var(--warn); }
+.req-cell.serr { background: #888888; }
+.req-cell.spending { background: var(--rule); animation: pulse 0.8s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  font-size: 0.78rem;
+  font-family: ui-sans-serif, -apple-system, sans-serif;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+}
+.results-table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 3px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+td {
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--rule);
+}
+tr:hover { background: var(--gauge-bg); }
+.status-200 { color: var(--ok); }
+.status-300 { color: #6da0e0; }
+.status-400 { color: var(--err); }
+.status-429 { color: var(--429); font-weight: 700; }
+.status-500 { color: var(--warn); }
+.status-err { color: var(--ink-soft); }
+footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-family: ui-sans-serif, -apple-system, sans-serif;
+}
+footer a { color: var(--orange-bright); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+  body { padding: 1rem 0.75rem; }
+  h1 { font-size: 1.2rem; }
+  .gauge-value { font-size: 1.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Rate Limit Tester</h1>
+    <div class="subtitle">Probe a URL with N requests per second</div>
+  </div>
+  <button class="theme-btn" id="theme-toggle" type="button">Light</button>
+</header>
+
+<p class="lede">Send a configurable burst of requests to a URL and watch how it responds. Useful for: validating your own rate limits, characterizing third-party API limits before integrating, finding the 429 threshold, and inspecting the Retry-After header your service sends back.</p>
+
+<div class="warn-banner">
+  <strong>Use responsibly</strong><br>
+  Only test URLs you own, or third-party APIs whose terms permit load testing. Rate-limit testing other people's services without permission is hostile traffic. CORS will block requests to most third-party domains from this browser tool, which is a feature.
+</div>
+
+<div class="controls">
+  <h2>Configuration</h2>
+  <div class="control-grid">
+    <div class="field url-field">
+      <label for="url">Target URL</label>
+      <input type="text" id="url" placeholder="https://api.example.com/endpoint" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="method">Method</label>
+      <select id="method">
+        <option>GET</option>
+        <option>POST</option>
+        <option>PUT</option>
+        <option>DELETE</option>
+        <option>PATCH</option>
+        <option>HEAD</option>
+        <option>OPTIONS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="rps">Requests per second</label>
+      <input type="number" id="rps" value="5" min="1" max="100" step="1">
+    </div>
+    <div class="field">
+      <label for="duration">Duration (seconds)</label>
+      <input type="number" id="duration" value="10" min="1" max="60" step="1">
+    </div>
+    <div class="field">
+      <label for="timeout">Timeout (ms)</label>
+      <input type="number" id="timeout" value="10000" min="100" max="60000" step="100">
+    </div>
+  </div>
+  <div class="field" style="margin-top: 1rem;">
+    <label for="headers">Headers (one per line: Key: Value)</label>
+    <textarea id="headers" placeholder="Authorization: Bearer YOUR_TOKEN&#10;Content-Type: application/json"></textarea>
+  </div>
+  <div class="field" style="margin-top: 1rem;">
+    <label for="body">Request body (for POST/PUT/PATCH)</label>
+    <textarea id="body" placeholder='{"key":"value"}'></textarea>
+  </div>
+  <div class="btn-row">
+    <button class="primary" id="start-btn" type="button">Start test</button>
+    <button class="danger" id="stop-btn" type="button" disabled>Stop</button>
+    <button id="clear-btn" type="button">Clear results</button>
+  </div>
+</div>
+
+<div class="gauges">
+  <div class="gauge"><div class="gauge-label">Total sent</div><div class="gauge-value" id="g-sent">0</div><div class="gauge-unit">requests</div></div>
+  <div class="gauge gauge-ok"><div class="gauge-label">2xx OK</div><div class="gauge-value" id="g-ok">0</div><div class="gauge-unit">success</div></div>
+  <div class="gauge gauge-429"><div class="gauge-label">429 limited</div><div class="gauge-value" id="g-429">0</div><div class="gauge-unit">throttled</div></div>
+  <div class="gauge gauge-err"><div class="gauge-label">Errors</div><div class="gauge-value" id="g-err">0</div><div class="gauge-unit">other</div></div>
+  <div class="gauge"><div class="gauge-label">Avg latency</div><div class="gauge-value" id="g-latency">--</div><div class="gauge-unit">ms</div></div>
+  <div class="gauge"><div class="gauge-label">First 429</div><div class="gauge-value" id="g-first-429">--</div><div class="gauge-unit">request #</div></div>
+</div>
+
+<div class="timeline">
+  <h2>Timeline</h2>
+  <div class="timeline-bar" id="timeline"></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background: var(--ok);"></div>2xx</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #6080c0;"></div>3xx</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--err);"></div>4xx (not 429)</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--429);"></div>429</div>
+    <div class="legend-item"><div class="legend-dot" style="background: var(--warn);"></div>5xx</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #888;"></div>Network error / CORS</div>
+  </div>
+</div>
+
+<div class="results-table-wrap">
+  <h2>Per-request results</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Time (ms)</th>
+        <th>Status</th>
+        <th>Latency</th>
+        <th>Retry-After</th>
+        <th>X-RateLimit-*</th>
+      </tr>
+    </thead>
+    <tbody id="results-body">
+      <tr><td colspan="6" style="text-align: center; color: var(--ink-soft); padding: 1.5rem;">No test run yet</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <div>Rate Limit Tester. MIT licensed. <a href="https://github.com/0xelitesystem/rate-limit-tester" target="_blank" rel="noopener">View source</a>.</div>
+  <div>Browser-based. CORS rules apply.</div>
+</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const themeBtn = $("theme-toggle");
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  themeBtn.textContent = t === "dark" ? "Light" : "Dark";
+}
+themeBtn.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  setTheme(cur === "dark" ? "light" : "dark");
+});
+
+const state = {
+  running: false,
+  startTime: 0,
+  testNumber: 0,
+  abortController: null,
+  results: [],
+  cells: [],
+};
+
+function reset() {
+  state.results = [];
+  state.cells = [];
+  $("g-sent").textContent = "0";
+  $("g-ok").textContent = "0";
+  $("g-429").textContent = "0";
+  $("g-err").textContent = "0";
+  $("g-latency").textContent = "--";
+  $("g-first-429").textContent = "--";
+  $("timeline").innerHTML = "";
+  $("results-body").innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--ink-soft); padding: 1.5rem;">No test run yet</td></tr>`;
+}
+
+function updateStats() {
+  const r = state.results;
+  $("g-sent").textContent = r.length;
+  const ok = r.filter(x => x.status >= 200 && x.status < 300).length;
+  const r429 = r.filter(x => x.status === 429).length;
+  const errs = r.filter(x => x.status === 0 || (x.status >= 400 && x.status !== 429)).length;
+  $("g-ok").textContent = ok;
+  $("g-429").textContent = r429;
+  $("g-err").textContent = errs;
+  const completed = r.filter(x => x.latency != null);
+  if (completed.length > 0) {
+    const avg = completed.reduce((s, x) => s + x.latency, 0) / completed.length;
+    $("g-latency").textContent = Math.round(avg);
+  }
+  const first429 = r.findIndex(x => x.status === 429);
+  if (first429 >= 0) $("g-first-429").textContent = "#" + (first429 + 1);
+}
+
+function classForStatus(status) {
+  if (status === 0) return "serr";
+  if (status === 429) return "s429";
+  if (status >= 200 && status < 300) return "s2xx";
+  if (status >= 300 && status < 400) return "s3xx";
+  if (status >= 400 && status < 500) return "s4xx";
+  if (status >= 500) return "s5xx";
+  return "serr";
+}
+
+function statusClass(status) {
+  if (status === 0) return "status-err";
+  if (status === 429) return "status-429";
+  if (status >= 200 && status < 300) return "status-200";
+  if (status >= 300 && status < 400) return "status-300";
+  if (status >= 400 && status < 500) return "status-400";
+  if (status >= 500) return "status-500";
+  return "status-err";
+}
+
+function renderTable() {
+  const body = $("results-body");
+  if (state.results.length === 0) return;
+  let html = "";
+  state.results.slice().reverse().forEach((r, idx) => {
+    const realIdx = state.results.length - idx;
+    html += `<tr>
+      <td>${realIdx}</td>
+      <td>${r.t}</td>
+      <td class="${statusClass(r.status)}">${r.status === 0 ? "ERR" : r.status}</td>
+      <td>${r.latency != null ? r.latency : "--"}</td>
+      <td>${r.retryAfter || ""}</td>
+      <td style="font-size: 0.75rem; color: var(--ink-soft);">${r.rateLimit || ""}</td>
+    </tr>`;
+  });
+  body.innerHTML = html;
+}
+
+async function sendOne(url, options, reqIdx) {
+  const cell = document.createElement("div");
+  cell.className = "req-cell spending";
+  cell.title = `Request ${reqIdx + 1}: pending`;
+  $("timeline").appendChild(cell);
+  state.cells[reqIdx] = cell;
+
+  const t0 = performance.now();
+  const result = { t: Math.round(performance.now() - state.startTime), status: 0, latency: null, retryAfter: null, rateLimit: null };
+
+  try {
+    const resp = await fetch(url, options);
+    result.status = resp.status;
+    result.latency = Math.round(performance.now() - t0);
+    result.retryAfter = resp.headers.get("Retry-After") || null;
+    // Collect any X-RateLimit-* headers
+    const rl = [];
+    resp.headers.forEach((v, k) => {
+      if (k.toLowerCase().startsWith("x-ratelimit") || k.toLowerCase().startsWith("ratelimit")) {
+        rl.push(`${k}: ${v}`);
+      }
+    });
+    result.rateLimit = rl.join("; ");
+  } catch (e) {
+    result.status = 0;
+    result.latency = Math.round(performance.now() - t0);
+    result.error = e.message;
+  }
+
+  state.results[reqIdx] = result;
+  cell.className = "req-cell " + classForStatus(result.status);
+  cell.title = `Request ${reqIdx + 1}: ${result.status === 0 ? 'network error' : result.status} (${result.latency}ms)`;
+  updateStats();
+  renderTable();
+}
+
+function buildOptions() {
+  const method = $("method").value;
+  const headersText = $("headers").value;
+  const bodyText = $("body").value;
+  const timeout = parseInt($("timeout").value);
+
+  const headers = {};
+  headersText.split("\n").forEach((line) => {
+    const colon = line.indexOf(":");
+    if (colon > 0) {
+      const k = line.slice(0, colon).trim();
+      const v = line.slice(colon + 1).trim();
+      if (k) headers[k] = v;
+    }
+  });
+
+  const opts = { method, headers };
+  if (["POST", "PUT", "PATCH"].includes(method) && bodyText) {
+    opts.body = bodyText;
+  }
+
+  // Timeout via AbortController per request
+  return { opts, timeout };
+}
+
+async function start() {
+  const url = $("url").value.trim();
+  if (!url) { alert("Enter a target URL"); return; }
+  try { new URL(url); } catch { alert("Not a valid URL"); return; }
+
+  const rps = parseInt($("rps").value);
+  const duration = parseInt($("duration").value);
+  if (rps < 1 || duration < 1) { alert("RPS and duration must be at least 1"); return; }
+  const total = rps * duration;
+  if (total > 1000) {
+    if (!confirm(`This will send ${total} requests. Continue?`)) return;
+  }
+
+  reset();
+  state.running = true;
+  state.startTime = performance.now();
+  $("start-btn").disabled = true;
+  $("stop-btn").disabled = false;
+
+  const interval = 1000 / rps;
+  const { opts, timeout } = buildOptions();
+
+  for (let i = 0; i < total; i++) {
+    if (!state.running) break;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeout);
+    sendOne(url, { ...opts, signal: ac.signal }, i).finally(() => clearTimeout(timer));
+    if (i < total - 1) {
+      await new Promise(r => setTimeout(r, interval));
+    }
+  }
+
+  // Wait briefly for in-flight requests
+  await new Promise(r => setTimeout(r, 200));
+  state.running = false;
+  $("start-btn").disabled = false;
+  $("stop-btn").disabled = true;
+}
+
+function stop() {
+  state.running = false;
+  $("start-btn").disabled = false;
+  $("stop-btn").disabled = true;
+}
+
+$("start-btn").addEventListener("click", start);
+$("stop-btn").addEventListener("click", stop);
+$("clear-btn").addEventListener("click", reset);
+
+setTheme("dark");
+</script>
+</body>
+</html>
